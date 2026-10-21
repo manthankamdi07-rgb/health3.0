@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # CORS — frontend client origins
     PATIENT_PORTAL_URL: str = "http://localhost:5173"
     DOCTOR_DASHBOARD_URL: str = "http://localhost:5174"
+    ALLOWED_ORIGINS: str = ""  # Comma-separated list of allowed origins, e.g. "https://patient-portal.vercel.app"
 
     # File Storage
     UPLOAD_DIR: str = "uploads"

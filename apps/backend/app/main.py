@@ -54,15 +54,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow both frontends
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS — allow frontends and Vercel deployments
+def get_allowed_origins() -> list[str]:
+    origins = [
         settings.PATIENT_PORTAL_URL,
         settings.DOCTOR_DASHBOARD_URL,
         "http://localhost:5173",
         "http://localhost:5174",
-    ],
+        "http://localhost:3000",
+    ]
+    if settings.ALLOWED_ORIGINS:
+        for org in settings.ALLOWED_ORIGINS.split(","):
+            org_clean = org.strip().rstrip("/")
+            if org_clean and org_clean not in origins:
+                origins.append(org_clean)
+    return origins
+
+
+allowed_origins = get_allowed_origins()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

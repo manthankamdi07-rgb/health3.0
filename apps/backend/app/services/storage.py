@@ -55,7 +55,14 @@ class LocalStorageService(StorageService):
 
     def __init__(self, upload_dir: str | None = None, max_size_bytes: int | None = None):
         settings = get_settings()
-        self.upload_dir = Path(upload_dir or settings.UPLOAD_DIR).resolve()
+        configured_dir = upload_dir or settings.UPLOAD_DIR
+        # In serverless environments like Vercel, the code root is read-only.
+        # Direct relative upload paths to /tmp so local writes succeed without crashing.
+        if os.environ.get("VERCEL") and not os.path.isabs(configured_dir):
+            self.upload_dir = Path("/tmp") / configured_dir
+        else:
+            self.upload_dir = Path(configured_dir).resolve()
+
         self.max_size_bytes = max_size_bytes or settings.MAX_UPLOAD_SIZE_BYTES
         # Ensure upload directory exists
         self.upload_dir.mkdir(parents=True, exist_ok=True)

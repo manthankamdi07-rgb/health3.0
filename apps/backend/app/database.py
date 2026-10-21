@@ -2,6 +2,7 @@
 SQLAlchemy async engine and session factory for PostgreSQL.
 """
 
+import os
 import logging
 from typing import Any, AsyncGenerator
 from sqlalchemy import text
@@ -13,7 +14,14 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # Engine configuration depending on DB dialect
-is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+db_url = settings.DATABASE_URL
+
+# In serverless environments like Vercel, the local repo filesystem is read-only.
+# If default relative SQLite is used on Vercel, point to /tmp so health checks won't fail.
+if os.environ.get("VERCEL") and db_url.startswith("sqlite") and "./health_db.sqlite" in db_url:
+    db_url = "sqlite+aiosqlite:////tmp/health_db.sqlite"
+
+is_sqlite = db_url.startswith("sqlite")
 
 connect_args: dict[str, Any] = {}
 engine_kwargs: dict[str, Any] = {"echo": False}
@@ -21,16 +29,26 @@ engine_kwargs: dict[str, Any] = {"echo": False}
 if is_sqlite:
     connect_args["check_same_thread"] = False
 else:
-    # PostgreSQL connection pool settings
-    engine_kwargs.update({
-        "pool_size": 10,
-        "max_overflow": 20,
-        "pool_pre_ping": True,
-        "pool_recycle": 1800,
-    })
+    # PostgreSQL connection pool settings:
+    # In serverless (Vercel/Lambda), small connection pools prevent exhausting Postgres connections.
+    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+    if is_serverless:
+        engine_kwargs.update({
+            "pool_size": 2,
+            "max_overflow": 3,
+            "pool_pre_ping": True,
+            "pool_recycle": 300,
+        })
+    else:
+        engine_kwargs.update({
+            "pool_size": 10,
+            "max_overflow": 20,
+            "pool_pre_ping": True,
+            "pool_recycle": 1800,
+        })
 
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    db_url,
     connect_args=connect_args,
     **engine_kwargs,
 )

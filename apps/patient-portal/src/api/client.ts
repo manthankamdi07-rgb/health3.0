@@ -3,7 +3,11 @@
  * Handles JWT authentication, file uploads, and full CRUD endpoints for the Patient Portal.
  */
 
-const API_BASE = '/api';
+// Dynamically resolve API URL from VITE_API_URL or fall back to '/api' for Vite dev proxy
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+const API_BASE = rawApiUrl
+  ? (rawApiUrl.endsWith('/api') ? rawApiUrl : `${rawApiUrl}/api`)
+  : '/api';
 
 export interface ApiError {
   message: string;
